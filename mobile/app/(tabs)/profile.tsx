@@ -11,6 +11,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CAREER_PATHWAYS,
   computeReadinessScore,
+  DEFAULT_TIMELINE_TASKS,
   type StudentProfile,
 } from '@shared';
 import { api, type StudentBundle } from '@/api';
@@ -102,7 +103,7 @@ export default function Profile() {
   });
 
   const createMutation = useMutation({
-    mutationFn: () => api.createStudent(token!, {}),
+    mutationFn: () => api.createStudent(token!, { timelineTasks: DEFAULT_TIMELINE_TASKS }),
     onSuccess: (bundle: StudentBundle) => {
       qc.invalidateQueries({ queryKey: ['students'] });
       setSelectedId(bundle.profile.id);

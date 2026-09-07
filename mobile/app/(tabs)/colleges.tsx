@@ -1,16 +1,22 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Linking,
   Pressable,
+  ScrollView,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { collegeIdFromUnitId } from '@shared';
 import { api, type CollegeFinancials } from '@/api';
 import { useAuth } from '@/auth';
+import { StudentSelector } from '@/StudentSelector';
+import { FinalFiveList } from '@/FinalFiveList';
+import { MAX_FINAL_FIVE } from '@/finalFive';
 
 const usd = (n: number | null): string =>
   n == null ? '—' : `$${Math.round(n).toLocaleString('en-US')}`;
@@ -26,8 +32,13 @@ const INCOME_BANDS: { key: keyof CollegeFinancials['netPriceByIncome']; label: s
   { key: 'band110k_plus', label: '$110k+' },
 ];
 
+type Mode = 'search' | 'final5';
+
 export default function Colleges() {
   const { token } = useAuth();
+  const qc = useQueryClient();
+  const [mode, setMode] = useState<Mode>('search');
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
 
@@ -36,6 +47,23 @@ export default function Colleges() {
     const t = setTimeout(() => setDebounced(query.trim()), 400);
     return () => clearTimeout(t);
   }, [query]);
+
+  // Student + bundle drive Final 5 membership and the "Add" action.
+  const studentsQuery = useQuery({
+    queryKey: ['students'],
+    queryFn: () => api.listStudents(token!),
+    enabled: !!token,
+  });
+  const students = studentsQuery.data?.students ?? [];
+  const activeId = selectedStudentId ?? students[0]?.id ?? null;
+
+  const bundleQuery = useQuery({
+    queryKey: ['student', activeId],
+    queryFn: () => api.getStudent(token!, activeId!),
+    enabled: !!token && !!activeId,
+  });
+  const finalFive = bundleQuery.data?.finalFive ?? [];
+  const finalFiveIds = new Set(finalFive.map((f) => f.collegeId));
 
   const statusQuery = useQuery({
     queryKey: ['scorecard-status'],
@@ -48,39 +76,119 @@ export default function Colleges() {
     queryFn: () => api.searchColleges(token!, debounced),
     enabled: !!token && enabled && debounced.length >= 2,
   });
-
   const results = searchQuery.data?.results ?? [];
+
+  const addMutation = useMutation({
+    mutationFn: (collegeId: string) =>
+      api.addFinalFive(token!, activeId!, { collegeId, category: 'Target' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['student', activeId] }),
+  });
+
+  const onAdd = (unitId: number) => {
+    if (!activeId) {
+      Alert.alert('No student yet', 'Create a student on the Profile tab first.');
+      return;
+    }
+    if (finalFive.length >= MAX_FINAL_FIVE) {
+      Alert.alert('Final 5 is full', 'Remove a school in “My Final 5” before adding another.');
+      return;
+    }
+    addMutation.mutate(collegeIdFromUnitId(unitId));
+  };
 
   return (
     <View className="flex-1 bg-slate-50">
-      <View className="border-b border-slate-200 bg-white px-5 pb-3 pt-2">
-        <TextInput
-          className="rounded-xl border border-slate-300 px-4 py-3 text-base text-ink"
-          placeholder="Search any U.S. college…"
-          placeholderTextColor="#94a3b8"
-          autoCapitalize="words"
-          autoCorrect={false}
-          value={query}
-          onChangeText={setQuery}
-        />
-      </View>
+      <Segmented mode={mode} onChange={setMode} count={finalFive.length} />
 
-      <FlatList
-        contentContainerClassName="p-5 gap-4"
-        data={results}
-        keyExtractor={(c) => String(c.unitId)}
-        keyboardShouldPersistTaps="handled"
-        renderItem={({ item }) => <CollegeCard college={item} />}
-        ListEmptyComponent={
-          <EmptyState
-            statusLoading={statusQuery.isLoading}
-            enabled={enabled}
-            searching={searchQuery.isFetching}
-            query={debounced}
-            error={searchQuery.isError}
+      {mode === 'search' ? (
+        <>
+          <View className="border-b border-slate-200 bg-white px-5 pb-3 pt-2">
+            <TextInput
+              className="rounded-xl border border-slate-300 px-4 py-3 text-base text-ink"
+              placeholder="Search any U.S. college…"
+              placeholderTextColor="#94a3b8"
+              autoCapitalize="words"
+              autoCorrect={false}
+              value={query}
+              onChangeText={setQuery}
+            />
+          </View>
+
+          <FlatList
+            contentContainerClassName="p-5 gap-4"
+            data={results}
+            keyExtractor={(c) => String(c.unitId)}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item }) => (
+              <CollegeCard
+                college={item}
+                inFinalFive={finalFiveIds.has(collegeIdFromUnitId(item.unitId))}
+                onAdd={() => onAdd(item.unitId)}
+              />
+            )}
+            ListEmptyComponent={
+              <EmptyState
+                statusLoading={statusQuery.isLoading}
+                enabled={enabled}
+                searching={searchQuery.isFetching}
+                query={debounced}
+                error={searchQuery.isError}
+              />
+            }
           />
-        }
-      />
+        </>
+      ) : activeId ? (
+        <>
+          {students.length > 1 ? (
+            <View className="bg-white px-5 py-3">
+              <StudentSelector
+                students={students}
+                activeId={activeId}
+                onSelect={setSelectedStudentId}
+              />
+            </View>
+          ) : null}
+          <FinalFiveList token={token!} activeId={activeId} items={finalFive} />
+        </>
+      ) : (
+        <ScrollView contentContainerClassName="p-5">
+          <View className="rounded-2xl bg-white p-6 shadow-sm">
+            <Text className="text-base font-semibold text-ink">No student yet</Text>
+            <Text className="mt-2 text-sm leading-5 text-muted">
+              Create a student on the Profile tab first, then add your Final 5
+              schools from Search.
+            </Text>
+          </View>
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
+function Segmented({
+  mode,
+  onChange,
+  count,
+}: {
+  mode: Mode;
+  onChange: (m: Mode) => void;
+  count: number;
+}) {
+  const Tab = ({ value, label }: { value: Mode; label: string }) => {
+    const on = mode === value;
+    return (
+      <Pressable
+        className={`flex-1 items-center rounded-lg py-2 ${on ? 'bg-white shadow-sm' : ''}`}
+        onPress={() => onChange(value)}
+      >
+        <Text className={`text-sm ${on ? 'font-semibold text-ink' : 'text-muted'}`}>{label}</Text>
+      </Pressable>
+    );
+  };
+  return (
+    <View className="flex-row gap-1 border-b border-slate-200 bg-slate-100 p-1">
+      <Tab value="search" label="Search" />
+      <Tab value="final5" label={`My Final 5${count ? ` (${count})` : ''}`} />
     </View>
   );
 }
@@ -157,7 +265,15 @@ function EmptyState({
   );
 }
 
-function CollegeCard({ college }: { college: CollegeFinancials }) {
+function CollegeCard({
+  college,
+  inFinalFive,
+  onAdd,
+}: {
+  college: CollegeFinancials;
+  inFinalFive: boolean;
+  onAdd: () => void;
+}) {
   const openNpc = () => {
     if (college.netPriceCalculatorUrl) Linking.openURL(college.netPriceCalculatorUrl);
   };
@@ -200,12 +316,22 @@ function CollegeCard({ college }: { college: CollegeFinancials }) {
         <Stat label="Earnings (10 yr)" value={usd(college.earnings10yr)} />
       </View>
 
-      {college.netPriceCalculatorUrl ? (
+      {inFinalFive ? (
+        <View className="mt-4 items-center rounded-xl bg-brand-light/30 py-3">
+          <Text className="text-sm font-semibold text-brand-dark">✓ In your Final 5</Text>
+        </View>
+      ) : (
         <Pressable
           className="mt-4 items-center rounded-xl border border-brand py-3 active:opacity-80"
-          onPress={openNpc}
+          onPress={onAdd}
         >
-          <Text className="text-sm font-semibold text-brand">
+          <Text className="text-sm font-semibold text-brand">+ Add to Final 5</Text>
+        </Pressable>
+      )}
+
+      {college.netPriceCalculatorUrl ? (
+        <Pressable className="mt-2 items-center py-2 active:opacity-70" onPress={openNpc}>
+          <Text className="text-sm font-semibold text-muted">
             Open the school's Net Price Calculator
           </Text>
         </Pressable>

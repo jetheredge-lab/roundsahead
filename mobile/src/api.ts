@@ -1,4 +1,4 @@
-import type { StudentProfile, AwardLetter } from '@shared';
+import type { StudentProfile, AwardLetter, TimelineTask, FinalFiveItem } from '@shared';
 import { API_BASE_URL } from './config';
 
 // The signed-in user, as returned by the backend (never includes the hash).
@@ -61,8 +61,10 @@ export const api = {
   // ── Students ──────────────────────────────────────────────────────
   listStudents: (token: string) =>
     request<{ students: StudentSummary[] }>('/students', { token }),
-  createStudent: (token: string, profile: Partial<StudentProfile>) =>
-    request<StudentBundle>('/students', { method: 'POST', token, body: { profile } }),
+  createStudent: (
+    token: string,
+    seed: { profile?: Partial<StudentProfile>; timelineTasks?: TimelineTask[] } = {},
+  ) => request<StudentBundle>('/students', { method: 'POST', token, body: seed }),
   getStudent: (token: string, id: string) =>
     request<StudentBundle>(`/students/${id}`, { token }),
   patchStudent: (token: string, id: string, fields: Partial<StudentProfile>) =>
@@ -84,6 +86,47 @@ export const api = {
       token,
     }),
 
+  // ── Timeline tasks (per student; upsert by client-provided id) ────
+  putTask: (token: string, studentId: string, task: TimelineTask) =>
+    request<{ task: TimelineTask }>(`/students/${studentId}/tasks/${task.id}`, {
+      method: 'PUT',
+      token,
+      body: task,
+    }),
+  deleteTask: (token: string, studentId: string, taskId: string) =>
+    request<{ ok: boolean }>(`/students/${studentId}/tasks/${taskId}`, {
+      method: 'DELETE',
+      token,
+    }),
+
+  // ── Final Five (per student; keyed by collegeId) ──────────────────
+  addFinalFive: (
+    token: string,
+    studentId: string,
+    body: { collegeId: string; category?: FinalFiveItem['category']; targetMajor?: string },
+  ) =>
+    request<{ item: FinalFiveItem }>(`/students/${studentId}/final-five`, {
+      method: 'POST',
+      token,
+      body,
+    }),
+  patchFinalFive: (
+    token: string,
+    studentId: string,
+    collegeId: string,
+    updates: Partial<FinalFiveItem>,
+  ) =>
+    request<{ item: FinalFiveItem }>(`/students/${studentId}/final-five/${collegeId}`, {
+      method: 'PATCH',
+      token,
+      body: updates,
+    }),
+  removeFinalFive: (token: string, studentId: string, collegeId: string) =>
+    request<{ ok: boolean }>(`/students/${studentId}/final-five/${collegeId}`, {
+      method: 'DELETE',
+      token,
+    }),
+
   // ── College Scorecard (net price by income) ───────────────────────
   scorecardStatus: () => request<{ enabled: boolean }>('/scorecard/status'),
   searchColleges: (token: string, q: string, state?: string) => {
@@ -94,6 +137,8 @@ export const api = {
       { token },
     );
   },
+  getCollegeByUnitId: (token: string, unitId: number) =>
+    request<{ financials: CollegeFinancials }>(`/scorecard/${unitId}`, { token }),
 };
 
 // A row from GET /api/students (list view — not the full profile).
@@ -139,8 +184,8 @@ export interface CollegeFinancials {
 export interface StudentBundle {
   profile: StudentProfile;
   savedColleges: string[];
-  finalFive: unknown[];
-  timelineTasks: unknown[];
+  finalFive: FinalFiveItem[];
+  timelineTasks: TimelineTask[];
   essays: unknown[];
   campusVisits: unknown[];
   awardLetters: AwardLetter[];
