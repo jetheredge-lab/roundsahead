@@ -28,19 +28,60 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (opts.token) headers.Authorization = `Bearer ${opts.token}`;
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method: opts.method ?? 'GET',
-    headers,
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-  });
+  const url = `${API_BASE_URL}${path}`;
+  const method = opts.method ?? 'GET';
+  const body = opts.body !== undefined ? JSON.stringify(opts.body) : undefined;
 
-  const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
-  if (!res.ok) {
-    throw new Error(data?.error ?? `Request failed (${res.status})`);
+  // The production origin (behind a Cloudflare tunnel) intermittently returns a
+  // transient 502/503/504. GET/PUT/DELETE are idempotent, so retry them a few
+  // times with backoff; POST is not retried (it may create duplicates).
+  const idempotent = method === 'GET' || method === 'PUT' || method === 'DELETE';
+  const maxAttempts = idempotent ? 4 : 1;
+  const isTransientStatus = (s: number) => s === 502 || s === 503 || s === 504;
+
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(url, { method, headers, body });
+
+      if (isTransientStatus(res.status) && attempt < maxAttempts) {
+        await sleep(250 * 2 ** (attempt - 1)); // 250ms, 500ms, 1s
+        continue;
+      }
+
+      const text = await res.text();
+      let data: any = null;
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          // Non-JSON body (an HTML error page, gateway timeout, etc.) — surface
+          // what we actually got instead of a cryptic parse error.
+          throw new Error(
+            `Server returned non-JSON (HTTP ${res.status}) for ${method} ${url}: ${text.slice(0, 120)}`,
+          );
+        }
+      }
+      if (!res.ok) {
+        throw new Error(data?.error ?? `Request failed (${res.status})`);
+      }
+      return data as T;
+    } catch (err) {
+      // A network-level failure (connection reset, offline). Retry idempotent
+      // requests; otherwise give up.
+      lastError = err;
+      const isNetworkError = err instanceof TypeError;
+      if (idempotent && isNetworkError && attempt < maxAttempts) {
+        await sleep(250 * 2 ** (attempt - 1));
+        continue;
+      }
+      throw err;
+    }
   }
-  return data as T;
+  throw lastError instanceof Error ? lastError : new Error('Request failed');
 }
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 export const api = {
   signup: (email: string, password: string) =>
