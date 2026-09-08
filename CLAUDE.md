@@ -14,10 +14,16 @@ local-build setup.
 - docs/roundsahead-marketing-plan.md — positioning, messaging, distribution
 
 ## Current phase
-Phase 8 — mobile port (Expo). Auth (Phase 2), storage (Phase 3), and the
-web features through Phase 6 are done. Mobile app builds and runs on iOS with
-sign-in, Profile, Colleges (net price), and Awards; native OAuth token-exchange
-is in place. Work-in-progress lives on branch `feat/phase8-mobile-port` (PR #1).
+Phase 9 — payments & entitlement gating. Auth (Phase 2), storage (Phase 3),
+web features through Phase 6, and the mobile port (Phase 8) are done. Payments
+use Option A: Stripe hosted Checkout → a one-time 12-month per-account license
+(`server/src/routes/billing.ts`). Entitlement is enforced server-side via
+`requirePaid` on paid write endpoints; the free/paid policy lives in
+`shared/lib/entitlement.ts`. Free tier = College Matcher, pathway explorer,
+profile, dashboard; everything else is paid. The free tier is the trial;
+refunds via the Stripe Customer Portal. Mobile shows a paywall (`LockedFeature`)
+with no in-app buy button (Apple-compliant) — a parent buys on the web and the
+app unlocks. WIP branch: `feat/phase8-mobile-timeline-finalfive`.
 
 ## Non-negotiables
 - Every pathway fact needs sourceUrl + lastVerified

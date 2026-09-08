@@ -5,6 +5,7 @@ import { DEFAULT_TIMELINE_TASKS, type TimelineTask } from '@shared';
 import { api, type StudentBundle } from '@/api';
 import { useAuth } from '@/auth';
 import { StudentSelector } from '@/StudentSelector';
+import { LockedFeature } from '@/LockedFeature';
 import { TimelineTaskForm } from '@/TimelineTaskForm';
 
 type GradeFilter = 'all' | TimelineTask['gradeLevel'];
@@ -28,7 +29,7 @@ const CATEGORY_EMOJI: Record<TimelineTask['category'], string> = {
 };
 
 export default function Timeline() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
@@ -108,6 +109,16 @@ export default function Timeline() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => deleteMutation.mutate(task.id) },
     ]);
+
+  // Paid feature — the server also enforces this on every write.
+  if (!user?.active) {
+    return (
+      <LockedFeature
+        title="Timeline & Deadlines"
+        blurb="A grade-by-grade roadmap of every task and deadline, from junior year through Decision Day."
+      />
+    );
+  }
 
   // ── Loading / empty account ──────────────────────────────────────
   if (studentsQuery.isLoading) {

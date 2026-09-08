@@ -13,12 +13,13 @@ import {
 import { api } from '@/api';
 import { useAuth } from '@/auth';
 import { StudentSelector } from '@/StudentSelector';
+import { LockedFeature } from '@/LockedFeature';
 import { AwardLetterForm, emptyAwardLetter } from '@/AwardLetterForm';
 
 const usd = (n: number): string => `$${Math.round(n).toLocaleString('en-US')}`;
 
 export default function Awards() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<AwardLetter | null>(null);
@@ -57,6 +58,16 @@ export default function Awards() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => deleteMutation.mutate(letter.id) },
     ]);
+
+  // Paid feature — the server also enforces this on every write.
+  if (!user?.active) {
+    return (
+      <LockedFeature
+        title="Award Letter Comparison"
+        blurb="Enter each financial-aid offer and see net cost and total four-year borrowing side by side, with loans-dressed-as-aid flagged."
+      />
+    );
+  }
 
   if (studentsQuery.isLoading) {
     return (

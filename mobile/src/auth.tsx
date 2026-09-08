@@ -16,6 +16,9 @@ interface AuthState {
   // the session once the id_token comes back.
   signInWithGoogleToken: (idToken: string) => Promise<void>;
   signOut: () => Promise<void>;
+  // Re-fetch the current user (e.g. to pick up a paid entitlement after the
+  // parent completes checkout on the web). Safe no-op when signed out.
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -85,6 +88,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const refreshUser = async () => {
+    if (!token) return;
+    try {
+      const { user: me } = await api.me(token);
+      setUser(me);
+    } catch {
+      // A transient failure just leaves the current user in place; the caller
+      // can retry. An expired token is handled on the next protected call.
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -96,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInWithApple,
         signInWithGoogleToken,
         signOut,
+        refreshUser,
       }}
     >
       {children}

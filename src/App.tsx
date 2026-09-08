@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppProvider } from './context/AppContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AuthScreen } from './components/AuthScreen';
 import { Loader2 } from 'lucide-react';
 import { Navbar, TabType } from './components/Navbar';
+import { UpgradeGate } from './components/UpgradeGate';
+import { isPaidFeature } from './lib/entitlement';
+import { getBillingStatus } from './api/billing';
 import { DashboardView } from './components/tabs/DashboardView';
 import { CareerPathwayView } from './components/tabs/CareerPathwayView';
 import { CollegeSearchView } from './components/tabs/CollegeSearchView';
@@ -19,6 +22,16 @@ import { GraduationCap, Heart, Sparkles } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const { user } = useAuth();
+  const [billingEnabled, setBillingEnabled] = useState(false);
+
+  useEffect(() => {
+    getBillingStatus().then((s) => setBillingEnabled(s.enabled));
+  }, []);
+
+  // The client gate is UX only — the server independently enforces entitlement
+  // on every paid write endpoint.
+  const locked = isPaidFeature(activeTab) && !user?.active;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
@@ -27,17 +40,23 @@ const AppContent: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-16">
-        {activeTab === 'dashboard' && <DashboardView setActiveTab={setActiveTab} />}
-        {activeTab === 'career_pathways' && <CareerPathwayView />}
-        {activeTab === 'colleges' && <CollegeSearchView setActiveTab={setActiveTab} />}
-        {activeTab === 'final_five' && <FinalFiveView setActiveTab={setActiveTab} />}
-        {activeTab === 'timeline' && <TimelineView />}
-        {activeTab === 'profile' && <ProfileView />}
-        {activeTab === 'resume' && <ResumeBuilderView />}
-        {activeTab === 'essays' && <EssayStudioView />}
-        {activeTab === 'campus_visits' && <CampusVisitsView />}
-        {activeTab === 'award_letters' && <AwardLettersView />}
-        {activeTab === 'course_planner' && <CoursePlannerView />}
+        {locked ? (
+          <UpgradeGate feature={activeTab} billingEnabled={billingEnabled} />
+        ) : (
+          <>
+            {activeTab === 'dashboard' && <DashboardView setActiveTab={setActiveTab} />}
+            {activeTab === 'career_pathways' && <CareerPathwayView />}
+            {activeTab === 'colleges' && <CollegeSearchView setActiveTab={setActiveTab} />}
+            {activeTab === 'final_five' && <FinalFiveView setActiveTab={setActiveTab} />}
+            {activeTab === 'timeline' && <TimelineView />}
+            {activeTab === 'profile' && <ProfileView />}
+            {activeTab === 'resume' && <ResumeBuilderView />}
+            {activeTab === 'essays' && <EssayStudioView />}
+            {activeTab === 'campus_visits' && <CampusVisitsView />}
+            {activeTab === 'award_letters' && <AwardLettersView />}
+            {activeTab === 'course_planner' && <CoursePlannerView />}
+          </>
+        )}
       </main>
 
       {/* Footer */}

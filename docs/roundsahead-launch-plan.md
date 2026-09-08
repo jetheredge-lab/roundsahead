@@ -726,6 +726,29 @@ rejects thin web wrappers under the minimum-functionality guideline.
 You must choose one — Apple does not allow both in-app purchase and external
 purchase links for digital goods on the same storefront.
 
+> **Status — Option A chosen and implemented.** Stripe hosted Checkout, a
+> one-time license → 12-month entitlement, signed webhooks
+> (`checkout.session.completed`, `charge.refunded`, `charge.dispute.created`),
+> and the Customer Portal are live on the server (`server/src/routes/billing.ts`).
+> The web app has Upgrade / Plan / Manage-billing UI (`src/components/Navbar.tsx`).
+>
+> **Entitlement now enforced (this session).** The server gates every paid
+> write endpoint via `requirePaid` (`server/src/requirePaid.ts`); free accounts
+> can't seed paid data through the bulk create/replace paths either. The
+> free/paid policy is centralized in `shared/lib/entitlement.ts` (web mirror in
+> `src/lib/entitlement.ts`) and surfaced as `UpgradeGate` (web) and
+> `LockedFeature` (mobile, Apple-compliant — no in-app buy button or link).
+>
+> **Free tier (the acquisition surface):** College Matcher, pathway explorer,
+> student profile, dashboard. **Paid:** Final 5, Timeline, Course Planner,
+> Resume, Essay & Letter Studio, Campus Visits, Award Letters. **Trial/refund:**
+> the free tier *is* the trial — no time-limited trial; refunds via the Stripe
+> Customer Portal. **Model:** one-time per-account 12-month license (covers all
+> students on the account).
+>
+> Still open: Stripe Tax, dunning/failed-card retries, the turn-on-a-commission
+> switch for a future Apple external-link rate, and region-aware link rules.
+
 **Option A — External web checkout (my lean for a parent buyer)**
 - [ ] **Stripe Checkout, hosted** — not custom Elements. Card data never touches
       your server, which collapses PCI scope to the minimum questionnaire.
