@@ -25,7 +25,11 @@ hosted Privacy/Terms (`landing/`) linked in-app, and the AI/content position
 stated in the policy (no training on user content). Store-questionnaire
 mappings + data-minimization audit: `docs/roundsahead-store-compliance.md`.
 Remaining Phase 10 is account-side/legal (submit store forms, counsel review).
-WIP branch: `feat/phase8-mobile-timeline-finalfive`.
+Phase 7 ops groundwork also landed: CI (`.github/workflows/ci.yml`), structured
+JSON logging (`server/src/log.ts`, `LOG_LEVEL`), and env-gated Sentry on API
+(`SENTRY_DSN`) and mobile (`EXPO_PUBLIC_SENTRY_DSN`); the managed-hosting
+migration itself is account-side and no provider is chosen yet (see DEPLOY.md
+"Target architecture"). WIP branch: `feat/phase8-mobile-timeline-finalfive`.
 
 ## Non-negotiables
 - Every pathway fact needs sourceUrl + lastVerified

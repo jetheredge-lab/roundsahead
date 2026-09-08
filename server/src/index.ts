@@ -9,6 +9,10 @@ import { billingRouter, billingWebhookHandler } from './routes/billing.js';
 import { scorecardRouter } from './routes/scorecard.js';
 import { requireAuth } from './auth.js';
 import { log } from './log.js';
+import { initSentry, setupSentryErrorHandler } from './sentry.js';
+
+// Initialize error monitoring before the app is built (no-op without SENTRY_DSN).
+initSentry();
 
 const app = express();
 
@@ -64,6 +68,9 @@ app.use('/api/auth', oauthRouter);
 app.use('/api/students', requireAuth, studentsRouter);
 app.use('/api/billing', requireAuth, billingRouter);
 app.use('/api/scorecard', scorecardRouter);
+
+// Sentry's Express error handler must come after routes (no-op when disabled).
+setupSentryErrorHandler(app);
 
 const PORT = Number(process.env.PORT) || 4100;
 app.listen(PORT, () => {

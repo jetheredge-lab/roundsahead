@@ -625,6 +625,22 @@ Replaces the Cloudflare-Tunnel-to-a-Mac-Mini setup. Do this before the mobile
 port: the SEO decision below changes your frontend architecture, and it's
 cheaper to change before there are two clients.
 
+> **Status — code/ops groundwork done; hosting migration is account-side.**
+> The static/SPA split (7a) is effectively already in place (landing at `/`, SPA
+> at `/app`). **CI** runs typecheck+test+build for web/server/mobile
+> (`.github/workflows/ci.yml`). **Structured logging** ships on the API
+> (`server/src/log.ts`, `LOG_LEVEL`). **Error monitoring (Sentry)** is wired and
+> env-gated on both the API (`server/src/sentry.ts`, `SENTRY_DSN`) and the Expo
+> app (`mobile/src/sentry.ts`, `EXPO_PUBLIC_SENTRY_DSN`) — no-ops until a DSN is
+> set. **Backups** (7c): `scripts/backup-db.sh` does validated pg_dumps with an
+> optional off-host copy (`RCLONE_REMOTE`); `DEPLOY.md` documents the managed
+> target + tested-restore cadence.
+>
+> Remaining (account-side, no provider chosen yet): provision managed Postgres +
+> API + frontend hosts (7b), move off the tunnel, add a staging environment and
+> uptime monitoring, set `SENTRY_DSN`/`EXPO_PUBLIC_SENTRY_DSN`, and confirm
+> encryption-at-rest wording in the privacy policy once the DB host is chosen.
+
 ### 7a. ⚠️ The SEO problem forces an architecture decision
 
 Your app is a Vite SPA — the server sends a nearly empty HTML shell and

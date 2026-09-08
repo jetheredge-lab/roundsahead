@@ -60,6 +60,10 @@ services:
       ENTITLEMENT_MONTHS: "${ENTITLEMENT_MONTHS:-12}"
       # College Scorecard (net price by income, admissions, earnings)
       SCORECARD_API_KEY: "${SCORECARD_API_KEY:-}"
+      # Ops: structured-log level + error monitoring (both optional).
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+      SENTRY_DSN: "${SENTRY_DSN:-}"
+      SENTRY_TRACES_SAMPLE_RATE: "${SENTRY_TRACES_SAMPLE_RATE:-0}"
     volumes:
       # Drop the Sign in with Apple key at ./secrets/apple_key.p8 on the host.
       - ./secrets:/app/secrets:ro
