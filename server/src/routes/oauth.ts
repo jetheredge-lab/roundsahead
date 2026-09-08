@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken';
 import { issueSession, signToken } from '../auth.js';
 import { findOrCreateUser } from '../oauthUsers.js';
 import { publicUser } from '../publicUser.js';
+import { log } from '../log.js';
 import {
   verifyGoogleIdToken,
   verifyAppleIdentityToken,
@@ -30,7 +31,7 @@ const appleEnabled = Boolean(
   APP_BASE_URL && APPLE_TEAM_ID && APPLE_SERVICES_ID && APPLE_KEY_ID && APPLE_PRIVATE_KEY_PATH && existsSync(APPLE_PRIVATE_KEY_PATH),
 );
 
-console.log(`[oauth] google=${googleEnabled} apple=${appleEnabled}`);
+log.info('oauth config', { google: googleEnabled, apple: appleEnabled });
 
 const STATE_COOKIE = 'ra_oauth_state';
 
@@ -107,7 +108,7 @@ oauthRouter.post('/google/native', nativeLimiter, async (req, res) => {
       res.status(401).json({ error: e.message });
       return;
     }
-    console.error('[oauth] google native exchange failed', e);
+    log.error('oauth google native exchange failed', { error: String((e as Error)?.message ?? e) });
     res.status(500).json({ error: 'Sign-in failed' });
   }
 });
@@ -123,7 +124,7 @@ oauthRouter.post('/apple/native', nativeLimiter, async (req, res) => {
       res.status(401).json({ error: e.message });
       return;
     }
-    console.error('[oauth] apple native exchange failed', e);
+    log.error('oauth apple native exchange failed', { error: String((e as Error)?.message ?? e) });
     res.status(500).json({ error: 'Sign-in failed' });
   }
 });
@@ -181,7 +182,7 @@ oauthRouter.get('/google/callback', async (req, res) => {
     issueSession(res, user.id);
     res.redirect(appRedirect('/app/'));
   } catch (e) {
-    console.error('[oauth] google callback failed', e);
+    log.error('oauth google callback failed', { error: String((e as Error)?.message ?? e) });
     res.redirect(appRedirect('/app/?auth_error=google'));
   }
 });
@@ -241,7 +242,7 @@ oauthRouter.post('/apple/callback', async (req, res) => {
     issueSession(res, user.id);
     res.redirect(appRedirect('/app/'));
   } catch (e) {
-    console.error('[oauth] apple callback failed', e);
+    log.error('oauth apple callback failed', { error: String((e as Error)?.message ?? e) });
     res.redirect(appRedirect('/app/?auth_error=apple'));
   }
 });

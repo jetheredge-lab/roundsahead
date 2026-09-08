@@ -15,18 +15,26 @@ Browser ── HTTPS ──> Cloudflare (Access login) ──> Tunnel ──> cl
                                                          /              \
                                                  static SPA         /api ─> api (:4100)
                                                                               │
-                                                                     SQLite (volume)
+                                                                   Postgres (volume)
 ```
+
+> ⚠️ **This document describes the *current* self-hosted stack.** Phase 7 of the
+> launch plan migrates off the Cloudflare-Tunnel-to-a-host setup to managed
+> hosting before there are paying customers — see
+> **[Target architecture (Phase 7)](#target-architecture-phase-7)** below.
 
 ## Components
 
 | Container              | Role                                                        | Host port |
 | ---------------------- | ----------------------------------------------------------- | --------- |
-| `roundsahead_web`        | nginx — serves the built SPA, proxies `/api` to the backend | `8080`    |
-| `roundsahead_api`        | Node/Express + SQLite — per-user state sync                 | internal  |
-| `roundsahead_cloudflared`| Cloudflare Tunnel to `pathpilot.meetiqpro.ai`               | —         |
+| `roundsahead_web`        | nginx — serves the landing page (`/`) + SPA (`/app`), proxies `/api` | `8080`    |
+| `roundsahead_api`        | Node/Express + Prisma — auth, per-user sync, billing        | internal  |
+| `roundsahead_postgres`   | Postgres 16 — application database                          | internal  |
+| `roundsahead_cloudflared`| Cloudflare Tunnel to the public hostname                    | —         |
 
-Data lives in the `roundsahead_data` Docker volume (the SQLite database).
+Data lives in the `roundsahead_pgdata` Docker volume (the Postgres database).
+The API connects via `DATABASE_URL` and applies migrations on start
+(`prisma migrate deploy`).
 
 ---
 
@@ -120,15 +128,65 @@ rebuilds.
 
 ## 7. Backups
 
-The whole database is the `roundsahead_data` volume. To snapshot it:
+The database is Postgres, in the `roundsahead_pgdata` volume. Use the scripts —
+don't tar the volume (a live volume copy can be inconsistent).
 
 ```bash
-docker run --rm -v roundsahead_data:/data -v "$PWD":/backup alpine \
-  tar czf /backup/pathpilot-db-backup.tar.gz -C /data .
+# Nightly logical backup: pg_dump inside the container, gzipped to ./backups,
+# validity-checked, with old backups pruned. Cron it (see the script header).
+./scripts/backup-db.sh
+
+# Restore a dump (into the live DB, or a scratch DB for a test restore):
+./scripts/restore-db.sh backups/roundsahead_YYYYMMDD_HHMMSS.sql.gz
+./scripts/restore-db.sh backups/roundsahead_....sql.gz roundsahead_restore_test
 ```
+
+**Independent off-host copy (do this — it's the step people skip).** Set
+`RCLONE_REMOTE` to an rclone remote pointing at object storage you control
+(Cloudflare R2, S3). `backup-db.sh` then pushes each dump off the host, so a
+total VM loss or lost account access doesn't take the backups with it.
+
+**Test the restore.** An untested backup is not a backup — restore into a
+scratch DB once a quarter and confirm the data is really there.
 
 Users can also self-export their own data any time via the in-app
 **Backup & Restore** button (JSON download/restore).
+
+---
+
+## Target architecture (Phase 7)
+
+The launch plan moves off the Cloudflare-Tunnel-to-a-host setup before there are
+paying customers. A tunnel to a home/office box is not a production posture.
+
+| Layer | Target | Notes |
+| --- | --- | --- |
+| Frontend | Vercel or Cloudflare Pages | Static landing + built SPA, global CDN, per-branch previews |
+| API | Railway or Render | Takes the existing `server/Dockerfile` almost as-is |
+| Postgres | Neon or Supabase | Managed, daily backups **+ point-in-time recovery**, pooling, branching |
+
+Migration notes:
+- The app already serves the landing page at `/` and the SPA at `/app`, so the
+  static/SPA split the plan calls for is effectively done — point the frontend
+  host at `landing/` + the `dist/` build.
+- Move `DATABASE_URL` to the managed Postgres connection string; everything else
+  is env already (`server/docker-compose.yml` lists the full set).
+- Keep the **independent `pg_dump` off-host copy** even with a managed provider —
+  provider backups don't protect against losing account access or a bad
+  migration that replicates cleanly.
+- Prefer daily backups + PITR over an HA replica at this scale (launch plan 7c).
+- Set `COOKIE_SECURE=true` once served exclusively over HTTPS.
+
+### Ops that ship with the repo
+- **CI** — `.github/workflows/ci.yml` runs typecheck + tests + build for web,
+  server, and mobile on every push and PR.
+- **Structured logging** — the API emits JSON-line logs (`server/src/log.ts`);
+  set `LOG_LEVEL` (`debug|info|warn|error`, default `info`). Hosted platforms
+  index these directly.
+
+Still to wire (needs accounts/DSNs): Sentry error monitoring (good Expo
+support), uptime monitoring with alerting, and a staging environment separate
+from production.
 
 ---
 

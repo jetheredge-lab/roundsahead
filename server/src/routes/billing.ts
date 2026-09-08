@@ -5,6 +5,7 @@ import { prisma } from '../prisma.js';
 import { type AuthedRequest } from '../auth.js';
 import { entitlementActive } from '../entitlement.js';
 import { commissionRateForSource } from '../commission.js';
+import { log } from '../log.js';
 
 // ── Configuration ───────────────────────────────────────────────────
 const APP_BASE_URL = (process.env.APP_BASE_URL ?? '').replace(/\/$/, '');
@@ -26,7 +27,7 @@ const stripe = STRIPE_SECRET_KEY
 // Checkout needs a secret key + a price; the webhook additionally needs its secret.
 const billingEnabled = Boolean(stripe && STRIPE_PRICE_ID && APP_BASE_URL);
 
-console.log(`[billing] enabled=${billingEnabled} webhook=${Boolean(stripe && STRIPE_WEBHOOK_SECRET)}`);
+log.info('billing config', { enabled: billingEnabled, webhook: Boolean(stripe && STRIPE_WEBHOOK_SECRET), tax: STRIPE_TAX_ENABLED });
 
 function customerIdOf(v: string | Stripe.Customer | Stripe.DeletedCustomer | null): string | null {
   if (!v) return null;
@@ -89,7 +90,7 @@ export async function billingWebhookHandler(req: Request, res: Response): Promis
       }
       case 'checkout.session.async_payment_failed': {
         // Delayed payment failed; nothing was granted, so nothing to revoke.
-        console.warn('[billing] async payment failed for session', event.data.object.id);
+        log.warn('billing async payment failed', { sessionId: event.data.object.id });
         break;
       }
       case 'charge.refunded': {
@@ -108,7 +109,7 @@ export async function billingWebhookHandler(req: Request, res: Response): Promis
     }
     res.json({ received: true });
   } catch (e) {
-    console.error('[billing] webhook handler error', e);
+    log.error('billing webhook handler error', { error: String((e as Error)?.message ?? e) });
     res.status(500).end();
   }
 }
