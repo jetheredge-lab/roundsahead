@@ -17,11 +17,13 @@ import {
   LogOut,
   Trash2,
   Scale,
-  CalendarRange
+  CalendarRange,
+  Lock
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { getBillingStatus, startCheckout, openBillingPortal } from '../api/billing';
+import { isPaidFeature } from '../lib/entitlement';
 import { Modal } from './common/Modal';
 
 export type TabType = 
@@ -281,6 +283,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
           <div className="flex space-x-1 overflow-x-auto pb-2 scrollbar-none pt-1">
             {navTabs.map(tab => {
               const isActive = activeTab === tab.id;
+              const locked = isPaidFeature(tab.id) && !isPro;
               return (
                 <button
                   key={tab.id}
@@ -290,9 +293,13 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                       ? 'bg-slate-900 text-white shadow-sm font-semibold'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                   }`}
+                  title={locked ? `${tab.label} — part of RoundsAhead Pro` : undefined}
                 >
                   {tab.icon}
                   <span>{tab.label}</span>
+                  {locked && (
+                    <Lock className={`w-3 h-3 ${isActive ? 'text-amber-300' : 'text-amber-500'}`} />
+                  )}
                   {tab.badge && (
                     <span
                       className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${

@@ -1,4 +1,5 @@
 import { prisma } from './prisma.js';
+import { log } from './log.js';
 
 // College Scorecard integration (U.S. Dept. of Education, public domain).
 // Docs: https://collegescorecard.ed.gov/data/documentation/
@@ -153,7 +154,7 @@ export async function getFinancials(unitId: number): Promise<Financials | null> 
       return fresh;
     }
   } catch (e) {
-    console.error('[scorecard] fetch failed', (e as Error).message);
+    log.error('scorecard fetch failed', { error: (e as Error).message });
   }
   // Fall back to stale cache if the refresh failed.
   return cached ? (cached.data as unknown as Financials) : null;

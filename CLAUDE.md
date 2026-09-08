@@ -3,12 +3,35 @@
 Pre-health pathway planning for high school students.
 Buyer is the parent; counselors are the distribution channel.
 
+## Repo location
+Local working copy: `~/dev/roundsahead` (moved off `~/Desktop/College Prep` —
+React Native's iOS build scripts break on paths containing spaces). The mobile
+app requires Node 20 LTS; see the `roundsahead-mobile-dev` memory for the full
+local-build setup.
+
 ## Planning docs — read before major work
 - docs/roundsahead-launch-plan.md — phased build plan
 - docs/roundsahead-marketing-plan.md — positioning, messaging, distribution
 
 ## Current phase
-Phase 0b (rebrand from PathPilot) → Phase 2 (auth, the blocker)
+Phase 10 — compliance (end user is a minor). Auth (Phase 2), storage (Phase 3),
+web features through Phase 6, the mobile port (Phase 8), and payments (Phase 9)
+are done. Payments use Option A: Stripe hosted Checkout → a one-time 12-month
+per-account license; entitlement is enforced server-side via `requirePaid`, and
+the free/paid policy lives in `shared/lib/entitlement.ts` (free = College
+Matcher, pathway explorer, profile, dashboard). Phase 10 engineering is done: a
+13+ self-attestation age gate at signup (web + mobile, no DOB collected),
+hosted Privacy/Terms (`landing/`) linked in-app, and the AI/content position
+stated in the policy (no training on user content). Store-questionnaire
+mappings + data-minimization audit: `docs/roundsahead-store-compliance.md`.
+Remaining Phase 10 is account-side/legal (submit store forms, counsel review).
+Phase 7 ops groundwork also landed: CI (`.github/workflows/ci.yml`), structured
+JSON logging (`server/src/log.ts`, `LOG_LEVEL`), and env-gated Sentry on API
+(`SENTRY_DSN`) and mobile (`EXPO_PUBLIC_SENTRY_DSN`). Hosting decided:
+Cloudflare Pages + Render + Neon (~$12/mo); deploy config is in-repo
+(`render.yaml`, `functions/api/[[path]].ts` proxy, `npm run build:pages`), but
+provisioning/cut-over is account-side (see DEPLOY.md "Managed hosting"). WIP
+branch: `feat/phase8-mobile-timeline-finalfive`.
 
 ## Non-negotiables
 - Every pathway fact needs sourceUrl + lastVerified

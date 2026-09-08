@@ -21,22 +21,49 @@ npx expo start           # press i (iOS sim), a (Android), or scan in Expo Go
 > development build (`npx expo run:ios` or an EAS build) because it uses a native
 > module — it is a no-op stub in Expo Go.
 
-## What works today (8.2 skeleton)
+## What works today
 
 - **Email / password auth** against the live API — token stored in
   `expo-secure-store`, session restored on cold start, protected-route redirect.
+- **Sign in with Apple** — the button runs the native prompt and posts the
+  identity token to `POST /api/auth/apple/native`, which verifies it (signature +
+  issuer + audience against the bundle id) and returns our session token. Needs a
+  dev build (see above); no extra client-id config required.
+- **Sign in with Google** — via `expo-auth-session`; posts the id_token to
+  `POST /api/auth/google/native`. Requires OAuth client IDs (below); until they
+  are set the button explains it isn't configured yet.
 - **Home tab** — shows the signed-in user and entitlement (Pro/free) read from
   the server, so a web purchaser is Pro on mobile automatically.
+- **Profile tab** — lists the account's students (multi-student aware), creates
+  one when none exist, computes the pathway-aware junior-year readiness score
+  from `@shared`, and edits core fields (name, grade, pathway, GPAs, SAT/ACT,
+  clinical/service hours) against the per-resource students API via React Query.
+- **Colleges tab** — searches any U.S. college via the College Scorecard API and
+  shows **net price by family income** (what families actually pay after aid),
+  admission rate, SAT range, median debt, and 10-year earnings, with a link to
+  each school's Net Price Calculator.
+- **Awards tab** — enter each college's financial-aid award letter (costs,
+  grants, work-study, loans) and compare them: net cost this year, total
+  borrowing over four years, the lowest-net-cost offer flagged, and a warning
+  when loans are presented as "awards." Money math comes from `@shared`;
+  presents numbers, never a recommendation.
 - **Pathways tab** — renders all career pathways from `@shared` (title, BLS pay,
   job growth, years, source count + verified date).
 
+## Configuring Google sign-in
+
+1. In Google Cloud Console create OAuth client IDs for the platforms you build
+   (iOS, Android, and/or Web).
+2. Expose them to the app via `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`,
+   `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
+   (or an `extra` block in `app.json`).
+3. On the **backend**, list those same client IDs in `GOOGLE_NATIVE_CLIENT_IDS`
+   (comma-separated) so the token exchange accepts their audience.
+
 ## Not yet wired (next steps)
 
-- **Native Apple / Google sign-in** → needs a backend token-exchange endpoint
-  (`POST /api/auth/{apple,google}/native` that accepts the identity token and
-  returns our session token). The buttons are in place; the exchange is the
-  follow-up.
-- **Student data / planner / colleges screens** → ports of the web views.
+- **Saved colleges / Final Five, timeline** → remaining ports of the web views.
+- **Save-to-student from college search** → lands with the saved-colleges list.
 - **Payments** (IAP vs. external) → deferred pending the product decision.
 
 ## Layout

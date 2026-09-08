@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma.js';
 import { type AuthedRequest } from '../auth.js';
+import { requirePaid, callerEntitled } from '../requirePaid.js';
 import {
   pickProfileFields,
   profileOut,
@@ -150,6 +151,23 @@ function buildChildCreates(body: Record<string, any>) {
   return { savedColleges, finalFive, timelineTasks, essays, campusVisits, awardLetters, courseEntries };
 }
 
+// Paid features (Phase 9) can't be seeded through the bulk create/replace paths
+// by a free account. Saved colleges + profile stay free so onboarding and
+// import still work; everything else is dropped unless the caller is entitled.
+type ChildCreates = ReturnType<typeof buildChildCreates>;
+function stripPaidChildren(children: ChildCreates, entitled: boolean): ChildCreates {
+  if (entitled) return children;
+  return {
+    savedColleges: children.savedColleges,
+    finalFive: [],
+    timelineTasks: [],
+    essays: [],
+    campusVisits: [],
+    awardLetters: [],
+    courseEntries: [],
+  };
+}
+
 // Load the full bundle for a student.
 async function loadBundle(studentId: string) {
   const student = await prisma.student.findUnique({
@@ -193,7 +211,7 @@ studentsRouter.get('/', async (req: AuthedRequest, res) => {
 studentsRouter.post('/', async (req: AuthedRequest, res) => {
   const body = (req.body ?? {}) as Record<string, any>;
   const profile = pickProfileFields(body.profile ?? {});
-  const children = buildChildCreates(body);
+  const children = stripPaidChildren(buildChildCreates(body), await callerEntitled(req));
   const student = await prisma.student.create({
     data: {
       user: { connect: { id: req.userId! } },
@@ -242,7 +260,7 @@ studentsRouter.put('/:id/state', async (req: AuthedRequest, res) => {
   if (!id) return;
   const body = (req.body ?? {}) as Record<string, any>;
   const profile = pickProfileFields(body.profile ?? {});
-  const children = buildChildCreates(body);
+  const children = stripPaidChildren(buildChildCreates(body), await callerEntitled(req));
 
   await prisma.$transaction([
     prisma.savedCollege.deleteMany({ where: { studentId: id } }),
@@ -296,7 +314,7 @@ studentsRouter.delete('/:id/saved-colleges/:collegeId', async (req: AuthedReques
 
 // ── Final five (keyed by collegeId) ─────────────────────────────────
 
-studentsRouter.post('/:id/final-five', async (req: AuthedRequest, res) => {
+studentsRouter.post('/:id/final-five', requirePaid, async (req: AuthedRequest, res) => {
   const id = await ownStudentId(req, res);
   if (!id) return;
   const body = (req.body ?? {}) as any;
@@ -319,7 +337,7 @@ studentsRouter.post('/:id/final-five', async (req: AuthedRequest, res) => {
   res.status(201).json({ item: finalFiveOut(item) });
 });
 
-studentsRouter.patch('/:id/final-five/:collegeId', async (req: AuthedRequest, res) => {
+studentsRouter.patch('/:id/final-five/:collegeId', requirePaid, async (req: AuthedRequest, res) => {
   const id = await ownStudentId(req, res);
   if (!id) return;
   const b = (req.body ?? {}) as any;
@@ -350,7 +368,7 @@ studentsRouter.delete('/:id/final-five/:collegeId', async (req: AuthedRequest, r
 // ── Timeline tasks ──────────────────────────────────────────────────
 
 // PUT upsert by client-provided id, scoped to the student.
-studentsRouter.put('/:id/tasks/:taskId', async (req: AuthedRequest, res) => {
+studentsRouter.put('/:id/tasks/:taskId', requirePaid, async (req: AuthedRequest, res) => {
   const id = await ownStudentId(req, res);
   if (!id) return;
   const t = (req.body ?? {}) as any;
@@ -385,7 +403,7 @@ studentsRouter.delete('/:id/tasks/:taskId', async (req: AuthedRequest, res) => {
 // ── Essays ──────────────────────────────────────────────────────────
 
 // PUT upsert by client-provided id, scoped to the student.
-studentsRouter.put('/:id/essays/:essayId', async (req: AuthedRequest, res) => {
+studentsRouter.put('/:id/essays/:essayId', requirePaid, async (req: AuthedRequest, res) => {
   const id = await ownStudentId(req, res);
   if (!id) return;
   const e = (req.body ?? {}) as any;
@@ -418,7 +436,7 @@ studentsRouter.delete('/:id/essays/:essayId', async (req: AuthedRequest, res) =>
 // ── Campus visits ───────────────────────────────────────────────────
 
 // PUT upsert by client-provided id, scoped to the student.
-studentsRouter.put('/:id/campus-visits/:visitId', async (req: AuthedRequest, res) => {
+studentsRouter.put('/:id/campus-visits/:visitId', requirePaid, async (req: AuthedRequest, res) => {
   const id = await ownStudentId(req, res);
   if (!id) return;
   const v = (req.body ?? {}) as any;
@@ -451,7 +469,7 @@ studentsRouter.delete('/:id/campus-visits/:visitId', async (req: AuthedRequest, 
 
 // ── Award letters (upsert by client-provided id, scoped to the student) ──
 
-studentsRouter.put('/:id/award-letters/:letterId', async (req: AuthedRequest, res) => {
+studentsRouter.put('/:id/award-letters/:letterId', requirePaid, async (req: AuthedRequest, res) => {
   const id = await ownStudentId(req, res);
   if (!id) return;
   const a = (req.body ?? {}) as any;
@@ -489,7 +507,7 @@ studentsRouter.delete('/:id/award-letters/:letterId', async (req: AuthedRequest,
 
 // ── Course entries (4-year course planner; upsert by client id) ──
 
-studentsRouter.put('/:id/courses/:courseId', async (req: AuthedRequest, res) => {
+studentsRouter.put('/:id/courses/:courseId', requirePaid, async (req: AuthedRequest, res) => {
   const id = await ownStudentId(req, res);
   if (!id) return;
   const c = (req.body ?? {}) as any;

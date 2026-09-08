@@ -1,0 +1,71 @@
+name: CI
+
+# Typecheck, test, and build every push and PR. Jobs are split per package so a
+# failure points at the right workspace, and so the web job doesn't need the
+# server's generated Prisma client (and vice versa).
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Web + shared (typecheck, test, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Test (web lib)
+        run: npx vitest run
+      - name: Build
+        run: npm run build
+
+  server:
+    name: Server (typecheck, test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      # Generates the Prisma client that the typecheck and tests import. No
+      # database connection is needed — the tests mock Prisma.
+      - name: Prisma generate
+        run: npx prisma generate
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Test
+        run: npx vitest run
+
+  mobile:
+    name: Mobile (typecheck)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit

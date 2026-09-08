@@ -26,7 +26,7 @@ Cloudflare Tunnel + Access.
 
 ## Phase 0 — Hygiene (do first, it's an hour)
 
-- [ ] Scrub `README.md`: remove local path `/Users/jeremyetheredge/Desktop/College Prep`
+- [x] Scrub `README.md`: no hardcoded local path remains. (Working copy now lives at `~/dev/roundsahead`.)
 - [ ] Scrub README language: "your son's readiness score" → neutral phrasing
 - [ ] Rename in `package.json`: `college-prep-navigator` → `roundsahead` (see Phase 0b)
 - [ ] Verify no secrets in git history now that the repo is public:
@@ -625,6 +625,31 @@ Replaces the Cloudflare-Tunnel-to-a-Mac-Mini setup. Do this before the mobile
 port: the SEO decision below changes your frontend architecture, and it's
 cheaper to change before there are two clients.
 
+> **Status — code/ops groundwork done; hosting migration is account-side.**
+> The static/SPA split (7a) is effectively already in place (landing at `/`, SPA
+> at `/app`). **CI** runs typecheck+test+build for web/server/mobile
+> (`.github/workflows/ci.yml`). **Structured logging** ships on the API
+> (`server/src/log.ts`, `LOG_LEVEL`). **Error monitoring (Sentry)** is wired and
+> env-gated on both the API (`server/src/sentry.ts`, `SENTRY_DSN`) and the Expo
+> app (`mobile/src/sentry.ts`, `EXPO_PUBLIC_SENTRY_DSN`) — no-ops until a DSN is
+> set. **Backups** (7c): `scripts/backup-db.sh` does validated pg_dumps with an
+> optional off-host copy (`RCLONE_REMOTE`); `DEPLOY.md` documents the managed
+> target + tested-restore cadence.
+>
+> **Stack decided (2026-09-08): Cloudflare Pages + Render + Neon (~$12/mo).**
+> Vercel Hobby bans commercial use ($20/mo min) and the API is a separate
+> container, so CF Pages fits better; Supabase PITR is a $100/mo add-on, so Neon
+> Launch (PITR + branching bundled) wins; Render Starter is $7 flat with no cold
+> start. Deploy config ships in-repo: `render.yaml`, a CF Pages proxy Function
+> (`functions/api/[[path]].ts`, so `/api/*` → Render and the site stays one
+> origin), and `npm run build:pages` → `pages-dist/`. See DEPLOY.md "Managed
+> hosting" for the runbook.
+>
+> Remaining (account-side): provision the three services and cut over off the
+> tunnel, add a staging environment (2nd Render service + a Neon branch) and
+> uptime monitoring, set the Sentry DSNs, and confirm encryption-at-rest wording
+> in the privacy policy once Neon is live.
+
 ### 7a. ⚠️ The SEO problem forces an architecture decision
 
 Your app is a Vite SPA — the server sends a nearly empty HTML shell and
@@ -726,6 +751,39 @@ rejects thin web wrappers under the minimum-functionality guideline.
 You must choose one — Apple does not allow both in-app purchase and external
 purchase links for digital goods on the same storefront.
 
+> **Status — Option A chosen and implemented.** Stripe hosted Checkout, a
+> one-time license → 12-month entitlement, signed webhooks
+> (`checkout.session.completed`, `charge.refunded`, `charge.dispute.created`),
+> and the Customer Portal are live on the server (`server/src/routes/billing.ts`).
+> The web app has Upgrade / Plan / Manage-billing UI (`src/components/Navbar.tsx`).
+>
+> **Entitlement now enforced (this session).** The server gates every paid
+> write endpoint via `requirePaid` (`server/src/requirePaid.ts`); free accounts
+> can't seed paid data through the bulk create/replace paths either. The
+> free/paid policy is centralized in `shared/lib/entitlement.ts` (web mirror in
+> `src/lib/entitlement.ts`) and surfaced as `UpgradeGate` (web) and
+> `LockedFeature` (mobile, Apple-compliant — no in-app buy button or link).
+>
+> **Free tier (the acquisition surface):** College Matcher, pathway explorer,
+> student profile, dashboard. **Paid:** Final 5, Timeline, Course Planner,
+> Resume, Essay & Letter Studio, Campus Visits, Award Letters. **Trial/refund:**
+> the free tier *is* the trial — no time-limited trial; refunds via the Stripe
+> Customer Portal. **Model:** one-time per-account 12-month license (covers all
+> students on the account).
+>
+> **Operational tail handled.** Stripe Tax is wired but env-gated
+> (`STRIPE_TAX_ENABLED`) pending dashboard tax registrations. The webhook now
+> only grants once a payment has actually settled and handles delayed/async
+> methods (`async_payment_succeeded` / `_failed`) — dunning proper doesn't apply
+> to a one-time payment. The Apple external-link commission is a config seam
+> (`server/src/commission.ts`, env `APPLE_EXTERNAL_LINK_COMMISSION_RATE` +
+> `_EFFECTIVE`): 0% today, recorded on Stripe metadata for iOS-referred
+> purchases so a rate can be turned on from a date without re-architecting.
+>
+> Still deferred (intentionally): actual commission remittance/attribution and
+> region-aware external-link rules — both only matter once a mobile "buy on the
+> web" link exists and Apple has actually set a rate.
+
 **Option A — External web checkout (my lean for a parent buyer)**
 - [ ] **Stripe Checkout, hosted** — not custom Elements. Card data never touches
       your server, which collapses PCI scope to the minimum questionnaire.
@@ -766,6 +824,21 @@ purchase links for digital goods on the same storefront.
 ---
 
 ## Phase 10 — Compliance (your end user is a minor)
+
+> **Status — engineering done; account-side & legal work remains.**
+> Privacy Policy and Terms are hosted (`landing/privacy`, `landing/terms`) and
+> linked from both the web and mobile sign-in surfaces. A 13+ self-attestation
+> **age gate** is enforced at signup on web (`src/components/AuthScreen.tsx`) and
+> mobile (`mobile/app/(auth)/sign-in.tsx`) — no birth date collected. The privacy
+> policy states the AI/content position plainly (no training on your content; any
+> future feedback tools disclosed and off by default). A data-minimization audit
+> and fill-in-the-blank mappings for the Apple App Privacy label, Google Play Data
+> Safety form, and age ratings live in **`docs/roundsahead-store-compliance.md`**.
+>
+> Still to do (account-side / legal, not code): submit both store privacy
+> questionnaires and age ratings, get counsel to review the policy + terms before
+> taking money, confirm encryption-at-rest wording once Phase 7 hosting is chosen,
+> and review 2026 state age-verification laws.
 
 - [ ] Privacy policy — publicly hosted URL, required by both stores
 - [ ] Terms of service

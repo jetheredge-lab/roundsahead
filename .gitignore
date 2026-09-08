@@ -5,6 +5,7 @@ server/node_modules/
 # Build output
 dist/
 server/dist/
+pages-dist/
 
 # Runtime data (SQLite database + WAL files)
 server/data/

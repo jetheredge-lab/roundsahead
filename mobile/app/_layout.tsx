@@ -6,6 +6,10 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '@/auth';
 import { queryClient } from '@/query';
+import { initSentry, wrapRoot } from '@/sentry';
+
+// Initialize error monitoring before anything renders (no-op without a DSN).
+initSentry();
 
 // Redirects between the auth flow and the app based on session state — the
 // standard Expo Router protected-routes pattern.
@@ -34,7 +38,7 @@ function RootNavigator() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
@@ -46,3 +50,5 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+export default wrapRoot(RootLayout);

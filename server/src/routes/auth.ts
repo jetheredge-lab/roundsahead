@@ -9,7 +9,7 @@ import {
   requireAuth,
   type AuthedRequest,
 } from '../auth.js';
-import { entitlementActive } from '../entitlement.js';
+import { publicUser } from '../publicUser.js';
 
 export const authRouter = Router();
 
@@ -17,18 +17,6 @@ const credentials = z.object({
   email: z.string().email().max(254).transform((e) => e.toLowerCase().trim()),
   password: z.string().min(8, 'Password must be at least 8 characters').max(200),
 });
-
-// Shape returned to the client for the signed-in user (never the hash).
-function publicUser(u: { id: string; email: string; emailVerified: boolean; plan: string; entitlementExpiresAt: Date | null }) {
-  return {
-    id: u.id,
-    email: u.email,
-    emailVerified: u.emailVerified,
-    plan: u.plan,
-    entitlementExpiresAt: u.entitlementExpiresAt,
-    active: entitlementActive(u),
-  };
-}
 
 // POST /api/auth/signup
 authRouter.post('/signup', async (req, res) => {

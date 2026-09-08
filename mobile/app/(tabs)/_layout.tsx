@@ -18,6 +18,34 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ focused }) => <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.5 }}>🎓</Text>,
+        }}
+      />
+      <Tabs.Screen
+        name="colleges"
+        options={{
+          title: 'Colleges',
+          tabBarIcon: ({ focused }) => <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.5 }}>🏫</Text>,
+        }}
+      />
+      <Tabs.Screen
+        name="awards"
+        options={{
+          title: 'Awards',
+          tabBarIcon: ({ focused }) => <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.5 }}>💰</Text>,
+        }}
+      />
+      <Tabs.Screen
+        name="timeline"
+        options={{
+          title: 'Timeline',
+          tabBarIcon: ({ focused }) => <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.5 }}>🗓️</Text>,
+        }}
+      />
+      <Tabs.Screen
         name="pathways"
         options={{
           title: 'Pathways',

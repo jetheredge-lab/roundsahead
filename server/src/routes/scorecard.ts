@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { scorecardEnabled, getFinancials, getByName, searchColleges } from '../scorecard.js';
 import { requireAuth } from '../auth.js';
+import { log } from '../log.js';
 
 export const scorecardRouter = Router();
 
@@ -25,7 +26,7 @@ scorecardRouter.get('/search', requireAuth, async (req, res) => {
     const results = await searchColleges(q, state);
     res.json({ results });
   } catch (e) {
-    console.error('[scorecard] search failed', (e as Error).message);
+    log.error('scorecard search failed', { error: (e as Error).message });
     res.json({ results: [] });
   }
 });
