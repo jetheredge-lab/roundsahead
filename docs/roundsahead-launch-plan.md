@@ -746,8 +746,18 @@ purchase links for digital goods on the same storefront.
 > Customer Portal. **Model:** one-time per-account 12-month license (covers all
 > students on the account).
 >
-> Still open: Stripe Tax, dunning/failed-card retries, the turn-on-a-commission
-> switch for a future Apple external-link rate, and region-aware link rules.
+> **Operational tail handled.** Stripe Tax is wired but env-gated
+> (`STRIPE_TAX_ENABLED`) pending dashboard tax registrations. The webhook now
+> only grants once a payment has actually settled and handles delayed/async
+> methods (`async_payment_succeeded` / `_failed`) — dunning proper doesn't apply
+> to a one-time payment. The Apple external-link commission is a config seam
+> (`server/src/commission.ts`, env `APPLE_EXTERNAL_LINK_COMMISSION_RATE` +
+> `_EFFECTIVE`): 0% today, recorded on Stripe metadata for iOS-referred
+> purchases so a rate can be turned on from a date without re-architecting.
+>
+> Still deferred (intentionally): actual commission remittance/attribution and
+> region-aware external-link rules — both only matter once a mobile "buy on the
+> web" link exists and Apple has actually set a rate.
 
 **Option A — External web checkout (my lean for a parent buyer)**
 - [ ] **Stripe Checkout, hosted** — not custom Elements. Card data never touches
