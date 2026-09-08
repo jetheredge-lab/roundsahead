@@ -27,9 +27,11 @@ mappings + data-minimization audit: `docs/roundsahead-store-compliance.md`.
 Remaining Phase 10 is account-side/legal (submit store forms, counsel review).
 Phase 7 ops groundwork also landed: CI (`.github/workflows/ci.yml`), structured
 JSON logging (`server/src/log.ts`, `LOG_LEVEL`), and env-gated Sentry on API
-(`SENTRY_DSN`) and mobile (`EXPO_PUBLIC_SENTRY_DSN`); the managed-hosting
-migration itself is account-side and no provider is chosen yet (see DEPLOY.md
-"Target architecture"). WIP branch: `feat/phase8-mobile-timeline-finalfive`.
+(`SENTRY_DSN`) and mobile (`EXPO_PUBLIC_SENTRY_DSN`). Hosting decided:
+Cloudflare Pages + Render + Neon (~$12/mo); deploy config is in-repo
+(`render.yaml`, `functions/api/[[path]].ts` proxy, `npm run build:pages`), but
+provisioning/cut-over is account-side (see DEPLOY.md "Managed hosting"). WIP
+branch: `feat/phase8-mobile-timeline-finalfive`.
 
 ## Non-negotiables
 - Every pathway fact needs sourceUrl + lastVerified

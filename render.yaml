@@ -1,0 +1,63 @@
+# Render Blueprint for the RoundsAhead API (Phase 7 hosting).
+#
+# One always-on Docker web service built from server/Dockerfile. The database is
+# NOT defined here — it's managed Postgres on Neon; set DATABASE_URL to the Neon
+# connection string in the Render dashboard. Secrets are declared with
+# `sync: false` so Render prompts for them instead of storing them in git.
+#
+# Render injects PORT; the app already honors process.env.PORT. The Dockerfile's
+# `npm start` runs `prisma migrate deploy` before starting, so migrations apply
+# on each deploy.
+services:
+  - type: web
+    name: roundsahead-api
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    plan: starter # $7/mo, always-on (no cold-start spin-down)
+    region: virginia # match your Neon region (e.g. AWS us-east) to minimize latency
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Served exclusively over HTTPS in production → mark session cookies Secure.
+      - key: COOKIE_SECURE
+        value: 'true'
+      # Public origin. The SPA + API share this one origin via the Cloudflare
+      # Pages proxy (functions/api/[[path]].ts), so cookies stay first-party.
+      - key: APP_BASE_URL
+        value: https://roundsahead.com
+      - key: LOG_LEVEL
+        value: info
+      # ── Secrets: set these in the Render dashboard (sync:false) ──
+      - key: DATABASE_URL # Neon pooled connection string (?sslmode=require)
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: APPLE_TEAM_ID
+        sync: false
+      - key: APPLE_SERVICES_ID
+        sync: false
+      - key: APPLE_KEY_ID
+        sync: false
+      # Upload the .p8 as a Render Secret File and point this at its path
+      # (e.g. /etc/secrets/apple_key.p8).
+      - key: APPLE_PRIVATE_KEY_PATH
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: STRIPE_TAX_ENABLED
+        value: 'false'
+      - key: SCORECARD_API_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false

@@ -636,10 +636,19 @@ cheaper to change before there are two clients.
 > optional off-host copy (`RCLONE_REMOTE`); `DEPLOY.md` documents the managed
 > target + tested-restore cadence.
 >
-> Remaining (account-side, no provider chosen yet): provision managed Postgres +
-> API + frontend hosts (7b), move off the tunnel, add a staging environment and
-> uptime monitoring, set `SENTRY_DSN`/`EXPO_PUBLIC_SENTRY_DSN`, and confirm
-> encryption-at-rest wording in the privacy policy once the DB host is chosen.
+> **Stack decided (2026-09-08): Cloudflare Pages + Render + Neon (~$12/mo).**
+> Vercel Hobby bans commercial use ($20/mo min) and the API is a separate
+> container, so CF Pages fits better; Supabase PITR is a $100/mo add-on, so Neon
+> Launch (PITR + branching bundled) wins; Render Starter is $7 flat with no cold
+> start. Deploy config ships in-repo: `render.yaml`, a CF Pages proxy Function
+> (`functions/api/[[path]].ts`, so `/api/*` → Render and the site stays one
+> origin), and `npm run build:pages` → `pages-dist/`. See DEPLOY.md "Managed
+> hosting" for the runbook.
+>
+> Remaining (account-side): provision the three services and cut over off the
+> tunnel, add a staging environment (2nd Render service + a Neon branch) and
+> uptime monitoring, set the Sentry DSNs, and confirm encryption-at-rest wording
+> in the privacy policy once Neon is live.
 
 ### 7a. ⚠️ The SEO problem forces an architecture decision
 
