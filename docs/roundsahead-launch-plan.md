@@ -800,6 +800,21 @@ purchase links for digital goods on the same storefront.
 
 ## Phase 10 — Compliance (your end user is a minor)
 
+> **Status — engineering done; account-side & legal work remains.**
+> Privacy Policy and Terms are hosted (`landing/privacy`, `landing/terms`) and
+> linked from both the web and mobile sign-in surfaces. A 13+ self-attestation
+> **age gate** is enforced at signup on web (`src/components/AuthScreen.tsx`) and
+> mobile (`mobile/app/(auth)/sign-in.tsx`) — no birth date collected. The privacy
+> policy states the AI/content position plainly (no training on your content; any
+> future feedback tools disclosed and off by default). A data-minimization audit
+> and fill-in-the-blank mappings for the Apple App Privacy label, Google Play Data
+> Safety form, and age ratings live in **`docs/roundsahead-store-compliance.md`**.
+>
+> Still to do (account-side / legal, not code): submit both store privacy
+> questionnaires and age ratings, get counsel to review the policy + terms before
+> taking money, confirm encryption-at-rest wording once Phase 7 hosting is chosen,
+> and review 2026 state age-verification laws.
+
 - [ ] Privacy policy — publicly hosted URL, required by both stores
 - [ ] Terms of service
 - [ ] Apple App Privacy "nutrition label" questionnaire

@@ -14,16 +14,18 @@ local-build setup.
 - docs/roundsahead-marketing-plan.md — positioning, messaging, distribution
 
 ## Current phase
-Phase 9 — payments & entitlement gating. Auth (Phase 2), storage (Phase 3),
-web features through Phase 6, and the mobile port (Phase 8) are done. Payments
-use Option A: Stripe hosted Checkout → a one-time 12-month per-account license
-(`server/src/routes/billing.ts`). Entitlement is enforced server-side via
-`requirePaid` on paid write endpoints; the free/paid policy lives in
-`shared/lib/entitlement.ts`. Free tier = College Matcher, pathway explorer,
-profile, dashboard; everything else is paid. The free tier is the trial;
-refunds via the Stripe Customer Portal. Mobile shows a paywall (`LockedFeature`)
-with no in-app buy button (Apple-compliant) — a parent buys on the web and the
-app unlocks. WIP branch: `feat/phase8-mobile-timeline-finalfive`.
+Phase 10 — compliance (end user is a minor). Auth (Phase 2), storage (Phase 3),
+web features through Phase 6, the mobile port (Phase 8), and payments (Phase 9)
+are done. Payments use Option A: Stripe hosted Checkout → a one-time 12-month
+per-account license; entitlement is enforced server-side via `requirePaid`, and
+the free/paid policy lives in `shared/lib/entitlement.ts` (free = College
+Matcher, pathway explorer, profile, dashboard). Phase 10 engineering is done: a
+13+ self-attestation age gate at signup (web + mobile, no DOB collected),
+hosted Privacy/Terms (`landing/`) linked in-app, and the AI/content position
+stated in the policy (no training on user content). Store-questionnaire
+mappings + data-minimization audit: `docs/roundsahead-store-compliance.md`.
+Remaining Phase 10 is account-side/legal (submit store forms, counsel review).
+WIP branch: `feat/phase8-mobile-timeline-finalfive`.
 
 ## Non-negotiables
 - Every pathway fact needs sourceUrl + lastVerified

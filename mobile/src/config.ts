@@ -8,6 +8,13 @@ export const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ??
   'https://roundsahead.com/api';
 
+// The marketing site origin — where the publicly hosted Privacy Policy and
+// Terms of Service live. Both app stores require these to be reachable from
+// inside the app. Derived from the API base so a dev/staging override carries.
+export const WEB_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '');
+export const PRIVACY_URL = `${WEB_BASE_URL}/privacy`;
+export const TERMS_URL = `${WEB_BASE_URL}/terms`;
+
 // Google OAuth client IDs, created in the Google Cloud console (one per
 // platform). The returned id_token's audience is the platform's client id, and
 // the backend must allow it via GOOGLE_NATIVE_CLIENT_IDS. Until these are set,

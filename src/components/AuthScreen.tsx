@@ -10,6 +10,9 @@ export const AuthScreen: React.FC = () => {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // Age gate: required at account creation so RoundsAhead stays 13+ and COPPA
+  // does not apply. Self-attestation — we don't collect a minor's birth date.
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [providers, setProviders] = useState<{ google: boolean; apple: boolean }>({ google: false, apple: false });
@@ -40,6 +43,10 @@ export const AuthScreen: React.FC = () => {
     }
     if (password.length < 8) {
       setError('Password must be at least 8 characters.');
+      return;
+    }
+    if (isSignup && !ageConfirmed) {
+      setError('Please confirm you’re 13 or older (or a parent/guardian) to create an account.');
       return;
     }
 
@@ -82,6 +89,12 @@ export const AuthScreen: React.FC = () => {
               {providers.google && (
                 <a
                   href="/api/auth/google"
+                  onClick={(e) => {
+                    if (isSignup && !ageConfirmed) {
+                      e.preventDefault();
+                      setError('Please confirm you’re 13 or older (or a parent/guardian) to create an account.');
+                    }
+                  }}
                   className="w-full flex items-center justify-center gap-2.5 border border-slate-300 rounded-lg py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
                 >
                   <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
@@ -96,6 +109,12 @@ export const AuthScreen: React.FC = () => {
               {providers.apple && (
                 <a
                   href="/api/auth/apple"
+                  onClick={(e) => {
+                    if (isSignup && !ageConfirmed) {
+                      e.preventDefault();
+                      setError('Please confirm you’re 13 or older (or a parent/guardian) to create an account.');
+                    }
+                  }}
                   className="w-full flex items-center justify-center gap-2.5 bg-black text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-slate-800 transition-colors"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -135,6 +154,22 @@ export const AuthScreen: React.FC = () => {
                 placeholder={isSignup ? 'At least 8 characters' : 'Your password'}
               />
             </div>
+
+            {isSignup && (
+              <label className="flex items-start gap-2.5 text-xs text-slate-600 leading-relaxed cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={ageConfirmed}
+                  onChange={(e) => setAgeConfirmed(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                />
+                <span>
+                  I’m 13 or older, or a parent/guardian creating this account, and I agree to the{' '}
+                  <a href="/terms" className="text-brand-600 hover:text-brand-700 font-semibold">Terms</a> and{' '}
+                  <a href="/privacy" className="text-brand-600 hover:text-brand-700 font-semibold">Privacy Policy</a>.
+                </span>
+              </label>
+            )}
 
             {error && (
               <p className="text-sm text-rose-600 font-medium">{error}</p>

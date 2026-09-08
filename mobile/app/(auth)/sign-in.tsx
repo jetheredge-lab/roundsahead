@@ -19,6 +19,8 @@ import {
   GOOGLE_IOS_CLIENT_ID,
   GOOGLE_WEB_CLIENT_ID,
   googleNativeConfigured,
+  PRIVACY_URL,
+  TERMS_URL,
 } from '@/config';
 
 // Required so the OAuth popup can hand control back to the app.
@@ -27,6 +29,10 @@ WebBrowser.maybeCompleteAuthSession();
 const GOOGLE_BTN_CLASS =
   'mt-3 items-center rounded-xl border border-slate-300 py-3.5 active:opacity-80';
 
+// Shown when someone tries to create an account without confirming they're 13+.
+const AGE_GATE_MESSAGE =
+  'Please confirm you’re 13 or older (or a parent/guardian) to create an account.';
+
 export default function SignIn() {
   const { signIn, signUp, signInWithApple } = useAuth();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
@@ -34,9 +40,17 @@ export default function SignIn() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Age gate (self-attestation) required at account creation — keeps the app
+  // 13+ so COPPA doesn't apply, without collecting a minor's birth date.
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const ageGateBlocks = mode === 'signup' && !ageConfirmed;
 
   const submit = async () => {
     setError(null);
+    if (ageGateBlocks) {
+      setError(AGE_GATE_MESSAGE);
+      return;
+    }
     setBusy(true);
     try {
       if (mode === 'signin') await signIn(email.trim(), password);
@@ -50,6 +64,10 @@ export default function SignIn() {
 
   const onApple = async () => {
     setError(null);
+    if (ageGateBlocks) {
+      setError(AGE_GATE_MESSAGE);
+      return;
+    }
     setBusy(true);
     try {
       await signInWithApple();
@@ -99,6 +117,24 @@ export default function SignIn() {
             value={password}
             onChangeText={setPassword}
           />
+
+          {mode === 'signup' ? (
+            <Pressable
+              className="mt-1 flex-row items-start gap-2.5"
+              onPress={() => setAgeConfirmed((v) => !v)}
+            >
+              <View
+                className={`mt-0.5 h-5 w-5 items-center justify-center rounded border ${
+                  ageConfirmed ? 'border-brand bg-brand' : 'border-slate-300 bg-white'
+                }`}
+              >
+                {ageConfirmed ? <Text className="text-xs font-bold text-white">✓</Text> : null}
+              </View>
+              <Text className="flex-1 text-xs leading-4 text-muted">
+                I’m 13 or older, or a parent/guardian creating this account.
+              </Text>
+            </Pressable>
+          ) : null}
 
           {error ? <Text className="text-sm text-red-600">{error}</Text> : null}
 
@@ -150,10 +186,28 @@ export default function SignIn() {
         {/* The Google request hook validates its client IDs eagerly, so it must
             only be mounted when Google is actually configured. */}
         {googleNativeConfigured ? (
-          <GoogleButton busy={busy} setBusy={setBusy} setError={setError} />
+          <GoogleButton
+            busy={busy}
+            setBusy={setBusy}
+            setError={setError}
+            blocked={ageGateBlocks}
+            onBlocked={() => setError(AGE_GATE_MESSAGE)}
+          />
         ) : (
           <GoogleUnavailableButton disabled={busy} />
         )}
+
+        <Text className="mt-8 text-center text-xs leading-4 text-muted">
+          By continuing you agree to our{' '}
+          <Text className="text-brand" onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)}>
+            Terms
+          </Text>{' '}
+          and{' '}
+          <Text className="text-brand" onPress={() => WebBrowser.openBrowserAsync(PRIVACY_URL)}>
+            Privacy Policy
+          </Text>
+          .
+        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -165,10 +219,14 @@ function GoogleButton({
   busy,
   setBusy,
   setError,
+  blocked,
+  onBlocked,
 }: {
   busy: boolean;
   setBusy: (v: boolean) => void;
   setError: (v: string | null) => void;
+  blocked: boolean;
+  onBlocked: () => void;
 }) {
   const { signInWithGoogleToken } = useAuth();
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
@@ -196,7 +254,13 @@ function GoogleButton({
     <Pressable
       className={GOOGLE_BTN_CLASS}
       disabled={busy || !request}
-      onPress={() => promptAsync()}
+      onPress={() => {
+        if (blocked) {
+          onBlocked();
+          return;
+        }
+        promptAsync();
+      }}
     >
       <Text className="text-base font-semibold text-ink">Continue with Google</Text>
     </Pressable>
