@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { collegeIdFromUnitId } from '@shared';
-import { api, type CollegeFinancials } from '@/api';
+import { api, type CollegeFinancials, type StudentBundle } from '@/api';
 import { useAuth } from '@/auth';
 import { StudentSelector } from '@/StudentSelector';
 import { FinalFiveList } from '@/FinalFiveList';
@@ -64,6 +64,7 @@ export default function Colleges() {
   });
   const finalFive = bundleQuery.data?.finalFive ?? [];
   const finalFiveIds = new Set(finalFive.map((f) => f.collegeId));
+  const savedIds = new Set(bundleQuery.data?.savedColleges ?? []);
 
   const statusQuery = useQuery({
     queryKey: ['scorecard-status'],
@@ -83,6 +84,42 @@ export default function Colleges() {
       api.addFinalFive(token!, activeId!, { collegeId, category: 'Target' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['student', activeId] }),
   });
+
+  // Optimistic bookmark toggle so the heart feels instant.
+  const saveMutation = useMutation({
+    mutationFn: ({ collegeId, save }: { collegeId: string; save: boolean }) =>
+      save
+        ? api.addSavedCollege(token!, activeId!, collegeId)
+        : api.removeSavedCollege(token!, activeId!, collegeId),
+    onMutate: async ({ collegeId, save }) => {
+      await qc.cancelQueries({ queryKey: ['student', activeId] });
+      const prev = qc.getQueryData<StudentBundle>(['student', activeId]);
+      qc.setQueryData<StudentBundle>(['student', activeId], (old) =>
+        old
+          ? {
+              ...old,
+              savedColleges: save
+                ? [...old.savedColleges, collegeId]
+                : old.savedColleges.filter((c) => c !== collegeId),
+            }
+          : old,
+      );
+      return { prev };
+    },
+    onError: (_e, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(['student', activeId], ctx.prev);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['student', activeId] }),
+  });
+
+  const onToggleSave = (unitId: number) => {
+    if (!activeId) {
+      Alert.alert('No student yet', 'Create a student on the Profile tab first.');
+      return;
+    }
+    const collegeId = collegeIdFromUnitId(unitId);
+    saveMutation.mutate({ collegeId, save: !savedIds.has(collegeId) });
+  };
 
   const onAdd = (unitId: number) => {
     if (!activeId) {
@@ -123,7 +160,9 @@ export default function Colleges() {
               <CollegeCard
                 college={item}
                 inFinalFive={finalFiveIds.has(collegeIdFromUnitId(item.unitId))}
+                isSaved={savedIds.has(collegeIdFromUnitId(item.unitId))}
                 onAdd={() => onAdd(item.unitId)}
+                onToggleSave={() => onToggleSave(item.unitId)}
               />
             )}
             ListEmptyComponent={
@@ -268,11 +307,15 @@ function EmptyState({
 function CollegeCard({
   college,
   inFinalFive,
+  isSaved,
   onAdd,
+  onToggleSave,
 }: {
   college: CollegeFinancials;
   inFinalFive: boolean;
+  isSaved: boolean;
   onAdd: () => void;
+  onToggleSave: () => void;
 }) {
   const openNpc = () => {
     if (college.netPriceCalculatorUrl) Linking.openURL(college.netPriceCalculatorUrl);
@@ -286,8 +329,20 @@ function CollegeCard({
             {[college.city, college.state].filter(Boolean).join(', ')}
           </Text>
         </View>
-        <View className="rounded-full bg-slate-100 px-3 py-1">
-          <Text className="text-xs font-semibold text-ink capitalize">{college.ownership}</Text>
+        <View className="flex-row items-center gap-2">
+          <Pressable
+            onPress={onToggleSave}
+            hitSlop={8}
+            accessibilityLabel={isSaved ? 'Remove bookmark' : 'Save college'}
+            className="active:opacity-60"
+          >
+            <Text style={{ fontSize: 22 }} className={isSaved ? 'text-rose-600' : 'text-slate-300'}>
+              {isSaved ? '♥' : '♡'}
+            </Text>
+          </Pressable>
+          <View className="rounded-full bg-slate-100 px-3 py-1">
+            <Text className="text-xs font-semibold text-ink capitalize">{college.ownership}</Text>
+          </View>
         </View>
       </View>
 

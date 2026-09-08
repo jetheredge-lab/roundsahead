@@ -140,6 +140,19 @@ export const api = {
       token,
     }),
 
+  // ── Saved colleges (lightweight bookmark; keyed by collegeId) ─────
+  addSavedCollege: (token: string, studentId: string, collegeId: string) =>
+    request<{ ok: boolean }>(`/students/${studentId}/saved-colleges`, {
+      method: 'POST',
+      token,
+      body: { collegeId },
+    }),
+  removeSavedCollege: (token: string, studentId: string, collegeId: string) =>
+    request<{ ok: boolean }>(`/students/${studentId}/saved-colleges/${collegeId}`, {
+      method: 'DELETE',
+      token,
+    }),
+
   // ── Final Five (per student; keyed by collegeId) ──────────────────
   addFinalFive: (
     token: string,
